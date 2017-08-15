@@ -1,0 +1,37 @@
+﻿1548> 2017-08-14 19:33:37> Program: Starting Squirrel Updater: --createShortcut Discord.exe --setupIcon C:\Users\Devin\AppData\Local\Discord\app.ico
+1548> 2017-08-14 19:33:37> ApplyReleasesImpl: About to create shortcuts for Discord.exe, rootAppDir C:\Users\Devin\AppData\Local\Discord
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: Creating shortcut for Discord.exe => C:\Users\Devin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc.\Discord.lnk
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: About to save shortcut: C:\Users\Devin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc.\Discord.lnk (target C:\Users\Devin\AppData\Local\Discord\Update.exe, workingDir C:\Users\Devin\AppData\Local\Discord\app-0.0.298, args --processStart Discord.exe)
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: Creating shortcut for Discord.exe => C:\Users\Devin\Desktop\Discord.lnk
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: About to save shortcut: C:\Users\Devin\Desktop\Discord.lnk (target C:\Users\Devin\AppData\Local\Discord\Update.exe, workingDir C:\Users\Devin\AppData\Local\Discord\app-0.0.298, args --processStart Discord.exe)
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: fixPinnedExecutables: newCurrentFolder: app-0.0.298
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: File 'C:\Users\Devin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\System Tools\Windows.Defender.lnk' could not be converted into a valid ShellLink: System.IO.FileNotFoundException: The system cannot find the file specified. (Exception from HRESULT: 0x80070002)
+   at Squirrel.Shell.ShellLink.IShellLinkW.Resolve(IntPtr hWnd, UInt32 fFlags)
+   at Squirrel.Shell.ShellLink.Open(String linkFile, IntPtr hWnd, EShellLinkResolveFlags resolveFlags, UInt16 timeOut)
+   at Squirrel.UpdateManager.ApplyReleasesImpl.<fixPinnedExecutables>b__11_0(FileInfo file)
+1548> 2017-08-14 19:33:39> ApplyReleasesImpl: Updating shortcut C:\Users\Devin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord.lnk
+1548> 2017-08-14 19:33:40> ApplyReleasesImpl: Updating shortcut C:\Users\Devin\Desktop\Discord.lnk
+2352> 2017-08-14 19:33:49> Program: Starting Squirrel Updater: --check https://discordapp.com/api/updates/stable
+2352> 2017-08-14 19:33:49> Program: Fetching update information, downloading from https://discordapp.com/api/updates/stable
+2352> 2017-08-14 19:33:49> SingleGlobalInstance: Grabbing lockfile with timeout of 00:00:10
+2352> 2017-08-14 19:33:49> CheckForUpdateImpl: Downloading RELEASES file from https://discordapp.com/api/updates/stable
+2352> 2017-08-14 19:33:49> FileDownloader: Downloading url: https://discordapp.com/api/updates/stable/RELEASES?id=Discord&localVersion=0.0.298&arch=amd64
+2352> 2017-08-14 19:33:49> CheckForUpdateImpl: No updates
+4548> 2017-08-14 19:33:55> Program: Starting Squirrel Updater: --check https://discordapp.com/api/updates/stable
+4548> 2017-08-14 19:33:55> Program: Fetching update information, downloading from https://discordapp.com/api/updates/stable
+4548> 2017-08-14 19:33:55> SingleGlobalInstance: Grabbing lockfile with timeout of 00:00:10
+4548> 2017-08-14 19:33:55> CheckForUpdateImpl: Downloading RELEASES file from https://discordapp.com/api/updates/stable
+4548> 2017-08-14 19:33:55> FileDownloader: Downloading url: https://discordapp.com/api/updates/stable/RELEASES?id=Discord&localVersion=0.0.298&arch=amd64
+4548> 2017-08-14 19:33:55> CheckForUpdateImpl: No updates
+6648> 2017-08-14 19:41:40> Program: Starting Squirrel Updater: --check https://discordapp.com/api/updates/stable
+6648> 2017-08-14 19:41:40> Program: Fetching update information, downloading from https://discordapp.com/api/updates/stable
+6648> 2017-08-14 19:41:40> SingleGlobalInstance: Grabbing lockfile with timeout of 00:00:10
+6648> 2017-08-14 19:41:40> CheckForUpdateImpl: Downloading RELEASES file from https://discordapp.com/api/updates/stable
+6648> 2017-08-14 19:41:40> FileDownloader: Downloading url: https://discordapp.com/api/updates/stable/RELEASES?id=Discord&localVersion=0.0.298&arch=amd64
+6648> 2017-08-14 19:41:40> CheckForUpdateImpl: No updates
+4856> 2017-08-14 20:01:30> Program: Starting Squirrel Updater: --check https://discordapp.com/api/updates/stable
+4856> 2017-08-14 20:01:30> Program: Fetching update information, downloading from https://discordapp.com/api/updates/stable
+4856> 2017-08-14 20:01:30> SingleGlobalInstance: Grabbing lockfile with timeout of 00:00:10
+4856> 2017-08-14 20:01:30> CheckForUpdateImpl: Downloading RELEASES file from https://discordapp.com/api/updates/stable
+4856> 2017-08-14 20:01:30> FileDownloader: Downloading url: https://discordapp.com/api/updates/stable/RELEASES?id=Discord&localVersion=0.0.298&arch=amd64
+4856> 2017-08-14 20:01:31> CheckForUpdateImpl: No updates

@@ -1,6 +1,10 @@
 # Discord Portable
 DiscordPortable is a portable version of the popular [Discord](https://discordapp.com/) application. It's an all-in-one voice and text chat for gamers that's free, secure, and works on both your desktop and phone. Stop paying for TeamSpeak servers and hassling with Skype. Simplify your life. 
 
+I was given permission by Discord Inc. to continue with developing this project. However, they will not be able to officially endorse this project because, _"...we do not have a hand in development directly."_ They go on to say..
+
+> _"As a result, if they happen to be released, we recommend to all of our users to be cautious when using third party applications with Discord in general and any usage is at their own risk."_
+
 ## Support
 To recompile this PAF you must use my version of the [PortableApps.com Launcher][S1].
 

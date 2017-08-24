@@ -36,6 +36,75 @@ LangString NET ${LANG_SPANISH}      `.NET Error:$\r$\n$\r$\ndebe instalarse v4.5
 
 ;= FUNCTIONS
 ;= ################
+Function Compare
+	!define Compare `!insertmacro _Compare`
+	!macro _Compare _VER1 _VER2 _RESULT
+		Push `${_VER1}`
+		Push `${_VER2}`
+		Call Compare
+		Pop ${_RESULT}
+	!macroend
+	Exch $1
+	Exch
+	Exch $0
+	Exch
+	Push $2
+	Push $3
+	Push $4
+	Push $5
+	Push $6
+	Push $7
+	StrCpy $2 -1
+	IntOp $2 $2 + 1
+	StrCpy $3 $0 1 $2
+	StrCmp $3 '' +2
+	StrCmp $3 '.' 0 -3
+	StrCpy $4 $0 $2
+	IntOp $2 $2 + 1
+	StrCpy $0 $0 '' $2
+	StrCpy $2 -1
+	IntOp $2 $2 + 1
+	StrCpy $3 $1 1 $2
+	StrCmp $3 '' +2
+	StrCmp $3 '.' 0 -3
+	StrCpy $5 $1 $2
+	IntOp $2 $2 + 1
+	StrCpy $1 $1 '' $2
+	StrCmp $4$5 '' +20
+	StrCpy $6 -1
+	IntOp $6 $6 + 1
+	StrCpy $3 $4 1 $6
+	StrCmp $3 '0' -2
+	StrCmp $3 '' 0 +2
+	StrCpy $4 0
+	StrCpy $7 -1
+	IntOp $7 $7 + 1
+	StrCpy $3 $5 1 $7
+	StrCmp $3 '0' -2
+	StrCmp $3 '' 0 +2
+	StrCpy $5 0
+	StrCmp $4 0 0 +2
+	StrCmp $5 0 -30 +10
+	StrCmp $5 0 +7
+	IntCmp $6 $7 0 +6 +8
+	StrCpy $4 '1$4'
+	StrCpy $5 '1$5'
+	IntCmp $4 $5 -35 +5 +3
+	StrCpy $0 0
+	Goto END
+	StrCpy $0 1
+	Goto END
+	StrCpy $0 2
+	END:
+	Pop $7
+	Pop $6
+	Pop $5
+	Pop $4
+	Pop $3
+	Pop $2
+	Pop $1
+	Exch $0
+FunctionEnd
 Function ReadS
 	!macro _ReadS _FILE _ENTRY _RESULT
 		Push `${_FILE}`
@@ -76,7 +145,7 @@ Function ReadS
 	StrCmpS $4 '$\r' +2
 	StrCmpS $4 '$\n' 0 +5
 	StrCpy $0 $0 -1
-	goto -4
+	Goto -4
 	SetErrors
 	StrCpy $0 ''
 	FileClose $2
@@ -195,11 +264,33 @@ ${SegmentPreExec}
 	AccessControl::GrantOnFile '$APPDATA\discord' (S-1-5-32-545) FULLACCESS
 !macroend
 ${SegmentUnload}
+	FindFirst $0 $1 `${APPDIR}\app-*`
+	ReadEnvStr $2 BUILD
+	UPLOOP:
+		StrCmp $1 "" UPDONE
+		StrCpy $3 $1 4
+		StrCmp $3 "app-" 0 UPNEXT
+		StrCpy $1 $1 "" 4
+		Push `$2.0`
+		Push `$1.0`
+		Call Compare
+		Pop $3
+		${If} $3 > 1
+			${If} ${FileExists} "${APPDIR}\app-$1\${APP}.exe"
+				${WriteAppInfoConfig} "Version" "DisplayVersion" "$1"
+				${WriteAppInfoConfig} "Version" "PackageVersion" "$1.0"
+			${EndIf}
+		${EndIf}
+		UPNEXT:
+			FindNext $0 $1
+		Goto UPLOOP
+	UPDONE:
+	FindClose $0
 	FindFirst $0 $1 `$LOCALAPPDATA\Microsoft\*`
 	StrCmpS $0 "" +12
 	StrCmpS $1 "" +11
 	StrCmpS $1 "." +8
-	StrCmpS $1 ".." +7
+	StrCmpS $1 ".." +7 
 	StrCpy $2 $1 3
 	StrCmpS $2 CLR 0 +5
 	IfFileExists `$LOCALAPPDATA\Microsoft\$1\UsageLogs\${APP}.exe.log` 0 +2

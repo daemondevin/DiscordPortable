@@ -22,6 +22,7 @@ All downloads available in the [Releases section][D1]. This portable application
   OneDrive, etc) or hard drive.
 * No need for any external software - simply download extract and run!
 * Packaged in PortableApps.com format for easy integration.
+* Self-sustaining; no need to update this package as it should update itself.
 
 ## System Requirements
 * Microsoft Windows 7 or later.

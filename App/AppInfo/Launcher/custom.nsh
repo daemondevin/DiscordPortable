@@ -36,151 +36,6 @@ LangString NET ${LANG_SPANISH}      `.NET Error:$\r$\n$\r$\ndebe instalarse v4.5
 
 ;= FUNCTIONS
 ;= ################
-Function Compare
-	!define Compare `!insertmacro _Compare`
-	!macro _Compare _VER1 _VER2 _RESULT
-		Push `${_VER1}`
-		Push `${_VER2}`
-		Call Compare
-		Pop ${_RESULT}
-	!macroend
-	Exch $1
-	Exch
-	Exch $0
-	Exch
-	Push $2
-	Push $3
-	Push $4
-	Push $5
-	Push $6
-	Push $7
-	StrCpy $2 -1
-	IntOp $2 $2 + 1
-	StrCpy $3 $0 1 $2
-	StrCmp $3 '' +2
-	StrCmp $3 '.' 0 -3
-	StrCpy $4 $0 $2
-	IntOp $2 $2 + 1
-	StrCpy $0 $0 '' $2
-	StrCpy $2 -1
-	IntOp $2 $2 + 1
-	StrCpy $3 $1 1 $2
-	StrCmp $3 '' +2
-	StrCmp $3 '.' 0 -3
-	StrCpy $5 $1 $2
-	IntOp $2 $2 + 1
-	StrCpy $1 $1 '' $2
-	StrCmp $4$5 '' +20
-	StrCpy $6 -1
-	IntOp $6 $6 + 1
-	StrCpy $3 $4 1 $6
-	StrCmp $3 '0' -2
-	StrCmp $3 '' 0 +2
-	StrCpy $4 0
-	StrCpy $7 -1
-	IntOp $7 $7 + 1
-	StrCpy $3 $5 1 $7
-	StrCmp $3 '0' -2
-	StrCmp $3 '' 0 +2
-	StrCpy $5 0
-	StrCmp $4 0 0 +2
-	StrCmp $5 0 -30 +10
-	StrCmp $5 0 +7
-	IntCmp $6 $7 0 +6 +8
-	StrCpy $4 '1$4'
-	StrCpy $5 '1$5'
-	IntCmp $4 $5 -35 +5 +3
-	StrCpy $0 0
-	Goto END
-	StrCpy $0 1
-	Goto END
-	StrCpy $0 2
-	END:
-	Pop $7
-	Pop $6
-	Pop $5
-	Pop $4
-	Pop $3
-	Pop $2
-	Pop $1
-	Exch $0
-FunctionEnd
-Function ReadS
-	!macro _ReadS _FILE _ENTRY _RESULT
-		Push `${_FILE}`
-		Push `${_ENTRY}`
-		Call ReadS
-		Pop ${_RESULT}
-	!macroend
-	!define ReadS `!insertmacro _ReadS`
-	!insertmacro TextFunc_BOM
-	Exch $1
-	Exch
-	Exch $0
-	Exch
-	Push $2
-	Push $3
-	Push $4
-	Push $5
-	ClearErrors
-	FileOpen $2 $0 r
-	IfErrors +22
-	FileReadWord $2 $5
-	IntCmp $5 0xFEFF +4
-	FileSeek $2 0 SET
-	StrCpy $TextFunc_BOM 0
-	Goto +2
-	StrCpy $TextFunc_BOM FFFE
-	StrLen $0 $1
-	StrCmpS $0 0 +14
-	IntCmp $5 0xFEFF +3
-	FileRead $2 $3
-	Goto +2
-	FileReadUTF16LE $2 $3
-	IfErrors +9
-	StrCpy $4 $3 $0
-	StrCmpS $4 $1 0 -6
-	StrCpy $0 $3 '' $0
-	StrCpy $4 $0 1 -1
-	StrCmpS $4 '$\r' +2
-	StrCmpS $4 '$\n' 0 +5
-	StrCpy $0 $0 -1
-	Goto -4
-	SetErrors
-	StrCpy $0 ''
-	FileClose $2
-	Pop $5
-	Pop $4
-	Pop $3
-	Pop $2
-	Pop $1
-	Exch $0
-FunctionEnd
-!define FILE_SUPPORTS_REPARSE_POINTS 0x00000080
-!macro YESNO _FLAGS _BIT _VAR
-	IntOp ${_VAR} ${_FLAGS} & ${_BIT}
-	${IfThen} ${_VAR} <> 0 ${|} StrCpy ${_VAR} 1 ${|}
-	${IfThen} ${_VAR} == 0 ${|} StrCpy ${_VAR} 0 ${|}
-!macroend
-Function ValidateFS
-	!macro _ValidateFS _PATH _RETURN
-		Push `${_PATH}`
-		Call ValidateFS
-		Pop ${_RETURN}
-	!macroend
-	!define ValidateFS `!insertmacro _ValidateFS`
-	Exch $0
-	Push $1
-	Push $2
-	StrCpy $0 $0 3
-	System::Call `Kernel32::GetVolumeInformation(t "$0",t,i ${NSIS_MAX_STRLEN},*i,*i,*i.r1,t,i ${NSIS_MAX_STRLEN})i.r0`
-	${If} $0 <> 0
-		!insertmacro YESNO $1 ${FILE_SUPPORTS_REPARSE_POINTS} $2
-	${EndIf}
-	Pop $0
-	Pop $1
-	Exch $2
-FunctionEnd
 
 ;= MACROS
 ;= ################
@@ -260,8 +115,44 @@ ${Segment.OnInit}
 		Quit
 	${EndIf}
 !macroend
+!macro RunAsAdmin
+	${ConfigReads} `${CONFIG}` Junctions= $0
+	StrCmpS $0 true 0 +2
+	StrCpy $RunAsAdmin force
+	${If} $RunAsAdmin == force
+		${If} ${ProcessExists} ${APP}.exe
+			Return
+		${Else}
+			Elevate:
+			!insertmacro UAC_RunElevated
+			${Switch} $0
+				${Case} 0
+					${IfThen} $1 = 1 ${|} Quit ${|}
+					${If} $3 <> 0
+						${Break}
+					${EndIf}
+					${If} $1 = 3
+						MessageBox MB_RETRYCANCEL|MB_ICONINFORMATION|MB_TOPMOST|MB_SETFOREGROUND \ 
+						"$(LauncherRequiresAdmin)$\r$\n$\r$\n$(LauncherNotAdminTryAgain)" IDRETRY Elevate
+						Quit
+					${EndIf}
+				${CaseUACCodeAlert} 1223 \
+					"$(LauncherRequiresAdmin)" \
+					"$(LauncherNotAdminLimitedFunctionality)"
+				${CaseUACCodeAlert} 1062 \
+					"$(LauncherAdminLogonServiceNotRunning)" \
+					"$(LauncherNotAdminLimitedFunctionality)"
+				${CaseUACCodeAlert} "" \
+					"$(LauncherAdminError)$\r$\n$(LauncherRequiresAdmin)" \
+					"$(LauncherAdminError)$\r$\n$(LauncherNotAdminLimitedFunctionality)"
+			${EndSwitch}
+		${EndIf}
+	${EndIf}
+!macroend
 ${SegmentPreExec}
-	AccessControl::GrantOnFile '$APPDATA\discord' (S-1-5-32-545) FULLACCESS
+	${If} $RunAsAdmin == force
+		AccessControl::GrantOnFile '$APPDATA\discord' (S-1-5-32-545) FULLACCESS
+	${EndIf}
 !macroend
 ${SegmentUnload}
 	FindFirst $0 $1 `${APPDIR}\app-*`
@@ -302,16 +193,21 @@ ${SegmentUnload}
 	FindClose $0
 !macroend
 !macro PreFilesMove
-	${Directory::BackupLocal} `$APPDATA` discord
-	${ConfigReads} `${CONFIG}` Junction= $0
-	${If} $0 == true
-		${If} $Admin == true
-			${ValidateFS} $EXEDIR $0
-			${If} $0 = 1
-				File /oname=${J} junction.exe
-				${WriteRuntimeData} ${PAL} NTFS 1
-				${Registry::BackupValue} `${JNC}` EulaAccepted $0
-				${Junction::BackupLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
+	${If} $RunAsAdmin == force
+		${Directory::BackupLocal} `$APPDATA` discord
+		${ConfigReads} `${CONFIG}` Junction= $0
+		${If} $0 == true
+			${If} $Admin == true
+				${ValidateFS} $EXEDIR $0
+				${If} $0 = 1
+					File /oname=${J} junction.exe
+					${WriteRuntimeData} ${PAL} NTFS 1
+					${Registry::BackupValue} `${JNC}` EulaAccepted $0
+					${Junction::BackupLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
+				${Else}
+					${Directory::BackupLocal} `$APPDATA` discord
+					${Directory::RestorePortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
+				${EndIf}
 			${Else}
 				${Directory::BackupLocal} `$APPDATA` discord
 				${Directory::RestorePortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
@@ -326,21 +222,25 @@ ${SegmentUnload}
 	${EndIf}
 !macroend
 !macro UnPostFilesMove
-	ClearErrors
-	${ReadRuntimeData} $0 ${PAL} NTFS
-	${If} ${Errors}
+	${If} $RunAsAdmin == force
+		ClearErrors
+		${ReadRuntimeData} $0 ${PAL} NTFS
+		${If} ${Errors}
+			${Directory::RestoreLocal} `$APPDATA` discord
+		${Else}
+			${If} $Admin == true
+				IfFileExists `${J}` +2
+				File /oname=${J} junction.exe
+				${Junction::RestoreLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
+				${Registry::RestoreBackupValue} `${JNC}` EulaAccepted $0
+				${Registry::DeleteKeyEmpty} `${JNC}` $0
+				${Registry::DeleteKeyEmpty} `${INT}` $0
+			${Else}
+				${Directory::RestoreLocal} `$APPDATA` discord
+			${EndIf}
+		${EndIf}
 		${Directory::RestoreLocal} `$APPDATA` discord
 	${Else}
-		${If} $Admin == true
-			IfFileExists `${J}` +2
-			File /oname=${J} junction.exe
-			${Junction::RestoreLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
-			${Registry::RestoreBackupValue} `${JNC}` EulaAccepted $0
-			${Registry::DeleteKeyEmpty} `${JNC}` $0
-			${Registry::DeleteKeyEmpty} `${INT}` $0
-		${Else}
-			${Directory::RestoreLocal} `$APPDATA` discord
-		${EndIf}
+		${Directory::RestoreLocal} `$APPDATA` discord
 	${EndIf}
-	${Directory::RestoreLocal} `$APPDATA` discord
 !macroend

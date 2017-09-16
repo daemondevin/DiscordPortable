@@ -93,7 +93,7 @@ ${Segment.OnInit}
 	MessageBox MB_ICONSTOP|MB_TOPMOST `$(NET)`
 	Call Unload
 	Quit
-	${ReadAppInfoConfig} $1 "Version" "DisplayVersion"
+	${ReadAppInfoConfig} $1 "Version" "ProgramVersion"
 	System::Call `${SETBUILD}`
 	${IfNot} ${Errors}
 		${ReadLauncherConfig} $2 "Launch" "ProgramExecutable"
@@ -168,7 +168,7 @@ ${SegmentUnload}
 		Pop $3
 		${If} $3 > 1
 			${If} ${FileExists} "${APPDIR}\app-$1\${APP}.exe"
-				${WriteAppInfoConfig} "Version" "DisplayVersion" "$1"
+				${WriteAppInfoConfig} "Version" "ProgramVersion" "$1"
 				${WriteAppInfoConfig} "Version" "PackageVersion" "$1.0"
 			${EndIf}
 		${EndIf}
@@ -193,21 +193,16 @@ ${SegmentUnload}
 	FindClose $0
 !macroend
 !macro PreFilesMove
-	${If} $RunAsAdmin == force
-		${Directory::BackupLocal} `$APPDATA` discord
-		${ConfigReads} `${CONFIG}` Junction= $0
-		${If} $0 == true
-			${If} $Admin == true
-				${ValidateFS} $EXEDIR $0
-				${If} $0 = 1
-					File /oname=${J} junction.exe
-					${WriteRuntimeData} ${PAL} NTFS 1
-					${Registry::BackupValue} `${JNC}` EulaAccepted $0
-					${Junction::BackupLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
-				${Else}
-					${Directory::BackupLocal} `$APPDATA` discord
-					${Directory::RestorePortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
-				${EndIf}
+	${Directory::BackupLocal} `$APPDATA` discord
+	${ConfigReads} `${CONFIG}` Junction= $0
+	${If} $0 == true
+		${If} $Admin == true
+			${ValidateFS} $EXEDIR $0
+			${If} $0 = 1
+				File /oname=${J} junction.exe
+				${WriteRuntimeData} ${PAL} NTFS 1
+				${Registry::BackupValue} `${JNC}` EulaAccepted $0
+				${Junction::BackupLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
 			${Else}
 				${Directory::BackupLocal} `$APPDATA` discord
 				${Directory::RestorePortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
@@ -221,26 +216,24 @@ ${SegmentUnload}
 		${Directory::RestorePortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
 	${EndIf}
 !macroend
-!macro UnPostFilesMove
-	${If} $RunAsAdmin == force
-		ClearErrors
-		${ReadRuntimeData} $0 ${PAL} NTFS
-		${If} ${Errors}
-			${Directory::RestoreLocal} `$APPDATA` discord
-		${Else}
-			${If} $Admin == true
-				IfFileExists `${J}` +2
-				File /oname=${J} junction.exe
-				${Junction::RestoreLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
-				${Registry::RestoreBackupValue} `${JNC}` EulaAccepted $0
-				${Registry::DeleteKeyEmpty} `${JNC}` $0
-				${Registry::DeleteKeyEmpty} `${INT}` $0
-			${Else}
-				${Directory::RestoreLocal} `$APPDATA` discord
-			${EndIf}
-		${EndIf}
+!macro PostFilesMove
+	ClearErrors
+	${ReadRuntimeData} $0 ${PAL} NTFS
+	${If} ${Errors}
 		${Directory::RestoreLocal} `$APPDATA` discord
 	${Else}
-		${Directory::RestoreLocal} `$APPDATA` discord
+		${If} $Admin == true
+			IfFileExists `${J}` +2
+			File /oname=${J} junction.exe
+			${Junction::RestoreLocal} `$APPDATA` discord `${DATA}\AppData\discord` discord $0 $1
+			${Registry::RestoreBackupValue} `${JNC}` EulaAccepted $0
+			${Registry::DeleteKeyEmpty} `${JNC}` $0
+			${Registry::DeleteKeyEmpty} `${INT}` $0
+		${Else}
+			${Directory::BackupPortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
+			${Directory::RestoreLocal} `$APPDATA` discord
+		${EndIf}
 	${EndIf}
+	${Directory::BackupPortable} `$APPDATA` discord `${DATA}\AppData\discord` $0 $1
+	${Directory::RestoreLocal} `$APPDATA` discord
 !macroend

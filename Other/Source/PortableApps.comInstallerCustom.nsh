@@ -20,7 +20,7 @@ Var Developer
 		DetailPrint "Checking if ${APP} was created by a different developer.."
 		ReadINIStr $0 "$INSTDIR\App\AppInfo\appinfo.ini" Team Developer
 		${IfNot} ${Errors}
-		${AndIfNot} "$0" == "demon.devin"
+		${AndIfNot} "$0" == "daemon.devin"
 			${If} "$0" == ""
 				StrCpy $Developer "Unknown Developer"
 			${Else}

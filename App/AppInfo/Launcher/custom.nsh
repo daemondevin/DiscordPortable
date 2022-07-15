@@ -9,11 +9,11 @@
 
 ;= DEFINES
 ;= ################
-!define SETBUILD	`Kernel32::SetEnvironmentVariable(t "BUILD", t "$1")`
-!define oNET		`SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full`
-!define J			`$PLUGINSDIR\junction.exe`
-!define INT			HKCU\Software\Sysinternals
-!define JNC			${INT}\Junction
+!define SETBUILD  `Kernel32::SetEnvironmentVariable(t "BUILD", t "$1")`
+!define oNET      `SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full`
+!define J         `$PLUGINSDIR\junction.exe`
+!define INT       HKCU\Software\Sysinternals
+!define JNC       ${INT}\Junction
 
 ;= LANGUAGE
 ;= ################

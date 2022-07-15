@@ -8,6 +8,9 @@ I was given permission by Discord Inc. to continue with developing this project.
 ## Support
 To recompile this PAF you must use my version of the [PortableApps.com Launcher][S1].
 
+## Clone
+If cloning this project please copy your local Discord folder into the App directory otherwise download the package from the [Releases section][D1].
+
  [S1]: https://github.com/demondevin/portableapps.comlauncher
 
 ## Download

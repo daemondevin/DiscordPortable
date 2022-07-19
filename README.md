@@ -5,6 +5,11 @@ I was given permission by Discord Inc. to continue with developing this project.
 
 > _"As a result, if they happen to be released, we recommend to all of our users to be cautious when using third party applications with Discord in general and any usage is at their own risk."_
 
+## BetterDiscord
+Now with [BetterDiscord][B1] incorperated. Copy `C:\Users\USERNAME\AppData\Roaming\BetterDiscord` to `..\DiscordPortable\App\BetterDiscord` or just download the [latest release][D1].
+
+[B1]: https://betterdiscord.app/
+
 ## Support
 To recompile this PAF you must use my version of the [PortableApps.com Launcher][S1].
 

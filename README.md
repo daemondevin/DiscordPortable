@@ -11,17 +11,17 @@ Now with [BetterDiscord][B1] incorperated. Copy `C:\Users\USERNAME\AppData\Roami
 [B1]: https://betterdiscord.app/
 
 ## Support
-To recompile this PAF you must use my version of the [PortableApps.com Launcher][S1].
+To recompile this PAF you must use my [PortableApps Compiler][S1].
 
 ## Clone
 If cloning this project please copy your local Discord folder into the App directory otherwise download the package from the [Releases section][D1].
 
- [S1]: https://github.com/demondevin/portableapps.comlauncher
+ [S1]: https://github.com/daemondevin/pac-man
 
 ## Download
 All downloads available in the [Releases section][D1]. This portable application was packaged using a modified version of the [PortableApps.com][D2] Launcher.
 
- [D1]: https://github.com/demondevin/DiscordPortable/releases/latest
+ [D1]: https://github.com/daemondevin/DiscordPortable/releases/latest
  [D2]: http//portableapps.com/
 
 ## Features
@@ -43,17 +43,17 @@ All downloads available in the [Releases section][D1]. This portable application
 * Discord Portable is a redistribution of the
   [Discord][C1] App, developed by [Discord Inc.][C2].
 * [PortableApps.com Suite][R1] by [PortableApps.com][D2].
-* [PortableApps.com Launcher][S1] developed by [demon.devin][C3].
+* [PortableApps Compiler][S1] developed by [daemon.devin][C3].
 
  [C1]: https://discordapp.com/
  [C2]: https://discordapp.com/company
- [C3]: https://github.com/demondevin
+ [C3]: https://github.com/daemondevin
 
 ## License
 
 * Portable application code released under [the MIT license][L1].
 * The Discord [EULA][L2].
 
- [L1]: https://raw.githubusercontent.com/demondevin/DiscordPortable/master/LICENSE
- [L2]: https://raw.githubusercontent.com/demondevin/DiscordPortable/master/App/AppInfo/EULA.txt
+ [L1]: https://raw.githubusercontent.com/daemondevin/DiscordPortable/master/LICENSE
+ [L2]: https://raw.githubusercontent.com/daemondevin/DiscordPortable/master/App/AppInfo/EULA.txt
  

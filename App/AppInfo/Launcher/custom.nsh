@@ -17,17 +17,23 @@
 ;                 current build and then swapped in under the journal, so a
 ;                 failure or a crash keeps the version you had. A damaged or
 ;                 missing Discord is downloaded the same way.
-;   BetterDiscord Optional (BetterDiscord= in DiscordPortable.ini). Its folder
-;                 lives in Data\BetterDiscord, betterdiscord.asar is
-;                 downloaded when it's missing, and Discord's core module is
-;                 told to load it only when the launcher asks for it.
+;   Client mods   Optional, one at a time (ClientMod= in DiscordPortable.ini).
+;                 BetterDiscord: its folder lives in Data\BetterDiscord,
+;                 betterdiscord.asar is downloaded when it's missing, and
+;                 Discord's core module is told to load it only when the
+;                 launcher asks for it. Vencord: its data and files live in
+;                 Data\Vencord, and for the session the running version gets
+;                 a resources\app loader that starts Vencord, which starts
+;                 Discord's own app.asar. Each mod updates itself after the
+;                 first download.
 ;   Discord       Journaled session changes: the discord:// protocol, the
 ;                 Run at startup entry, the uninstall entry and the shortcuts
 ;                 Discord makes for itself, all put back the way they were
 ;                 when it closes.
 ;
-; The AppData and BetterDiscord links are not done here: they are declared in
-; DiscordPortable.ini and handled by the journaled Symlinks segment.
+; The AppData, BetterDiscord and Vencord links are not done here: they are
+; declared in DiscordPortable.ini and handled by the journaled Symlinks
+; segment.
 
 ; Variables
 Var DscWant
@@ -53,6 +59,7 @@ Var DscFailed
 Var DscSwapped
 Var DscTool
 Var DscForce
+Var DscMod
 Var DlWindow
 Var DlLabel
 Var DlBar
@@ -70,6 +77,10 @@ Var DlText
 !define BDASAR      `${BDDIR}\data\betterdiscord.asar`
 !define BDURL       `https://github.com/BetterDiscord/BetterDiscord/releases/latest/download/betterdiscord.asar`
 !define BDENV       `DISCORDPORTABLE_BETTERDISCORD`
+!define VCDIR       `${DATA}\Vencord`
+!define VCDIST      `${VCDIR}\dist`
+!define VCURL       `https://github.com/Vendicated/Vencord/releases/download/devbuild`
+!define VCENV       `DISCORDPORTABLE_VENCORD`
 !define RUNKEY      `Software\Microsoft\Windows\CurrentVersion\Run`
 !define APPROVED    `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
 !define UNINSTKEY   `Software\Microsoft\Windows\CurrentVersion\Uninstall\Discord`
@@ -1195,7 +1206,7 @@ FunctionEnd
 ; BetterDiscord's folder (plugins, themes, settings and betterdiscord.asar)
 ; is kept in Data\BetterDiscord and linked to %APPDATA%\BetterDiscord, where
 ; BetterDiscord looks for it. Older packages kept it in App\BetterDiscord;
-; it is moved over once. With BetterDiscord=true, betterdiscord.asar is
+; it is moved over once. With ClientMod=BetterDiscord, betterdiscord.asar is
 ; downloaded when it's missing (BetterDiscord updates it itself after that)
 ; and Discord's core module is told to load it.
 Function DSC_BetterDiscord
@@ -1208,7 +1219,10 @@ Function DSC_BetterDiscord
 		CreateDirectory `${DATA}`
 		Rename `$EXEDIR\App\BetterDiscord` `${BDDIR}`
 	${EndIf}
-	${ReadUserConfig} $R1 BetterDiscord
+	StrCpy $R1 false
+	${If} $DscMod == betterdiscord
+		StrCpy $R1 true
+	${EndIf}
 	${If} $R1 == true
 		CreateDirectory `${BDDIR}\data\stable`
 		CreateDirectory `${BDDIR}\plugins`
@@ -1241,6 +1255,190 @@ Function DSC_BetterDiscord
 	Call DSC_PatchCore
 	Pop $R1
 	Pop $3
+	Pop $1
+	Pop $0
+FunctionEnd
+
+; Client mods
+
+; Sets $DscMod to the client mod to load: betterdiscord, vencord or none,
+; from ClientMod= in DiscordPortable.ini. Packages set up before ClientMod
+; existed have BetterDiscord=true instead, which still works.
+Function DSC_ClientMod
+	Push $0
+	StrCpy $DscMod none
+	${ReadUserConfig} $0 ClientMod
+	${If} $0 == vencord
+		StrCpy $DscMod vencord
+	${ElseIf} $0 == betterdiscord
+		StrCpy $DscMod betterdiscord
+	${ElseIf} $0 == ""
+		${ReadUserConfig} $0 BetterDiscord
+		${If} $0 == true
+			StrCpy $DscMod betterdiscord
+		${EndIf}
+	${EndIf}
+	Pop $0
+FunctionEnd
+
+; Sets $3 to true when Vencord's files are all in Data\Vencord\dist.
+Function DSC_VencordOK
+	Push $4
+	Push $5
+	StrCpy $3 false
+	${If} ${FileExists} `${VCDIST}\preload.js`
+	${AndIf} ${FileExists} `${VCDIST}\renderer.js`
+	${AndIf} ${FileExists} `${VCDIST}\renderer.css`
+		ClearErrors
+		FileOpen $4 `${VCDIST}\patcher.js` r
+		${IfNot} ${Errors}
+			FileSeek $4 0 END $5
+			FileClose $4
+			${If} $5 > 10240
+				StrCpy $3 true
+			${EndIf}
+		${EndIf}
+	${EndIf}
+	Pop $5
+	Pop $4
+FunctionEnd
+
+; Downloads Vencord's files from its GitHub releases into Data\Vencord\dist,
+; all or nothing: each one is fetched next to its place first. Sets $0 to
+; curl's exit code for the first file that failed, or 0.
+Function DSC_VencordDownload
+	Push $1
+	Push $2
+	Push $3
+	StrCpy $DscKB 0
+	StrCpy $3 0
+	${ForEach} $2 1 4 + 1
+		${Select} $2
+			${Case} 1
+				StrCpy $1 patcher.js
+			${Case} 2
+				StrCpy $1 preload.js
+			${Case} 3
+				StrCpy $1 renderer.js
+			${Case} 4
+				StrCpy $1 renderer.css
+		${EndSelect}
+		${If} $3 = 0
+			StrCpy $DscUrl `${VCURL}/$1`
+			StrCpy $DlText "Downloading Vencord ($1).."
+			StrCpy $1 `${VCDIST}\$1.download`
+			Call DSC_Fetch
+			StrCpy $3 $0
+		${EndIf}
+	${Next}
+	${ForEach} $2 1 4 + 1
+		${Select} $2
+			${Case} 1
+				StrCpy $1 patcher.js
+			${Case} 2
+				StrCpy $1 preload.js
+			${Case} 3
+				StrCpy $1 renderer.js
+			${Case} 4
+				StrCpy $1 renderer.css
+		${EndSelect}
+		${If} $3 = 0
+			Delete `${VCDIST}\$1`
+			Rename `${VCDIST}\$1.download` `${VCDIST}\$1`
+		${EndIf}
+		Delete `${VCDIST}\$1.download`
+	${Next}
+	StrCpy $0 $3
+	Pop $3
+	Pop $2
+	Pop $1
+FunctionEnd
+
+; Removes the Vencord loader (resources\app) from every Discord version in
+; build folder $0, when it is the one this launcher writes. The journal
+; removes it when Discord closes; this catches copies that missed that,
+; such as a version Discord installed while it ran.
+Function DSC_VencordClean
+	Push $1
+	Push $2
+	Push $3
+	Push $4
+	FindFirst $3 $4 `$0\app-*`
+	${DoWhile} $4 != ""
+		StrCpy $1 `$0\$4\resources\app`
+		Push $0
+		StrCpy $0 `$1\index.js`
+		StrCpy $2 ${VCENV}
+		Call DSC_FileHas
+		Pop $0
+		${If} $1 == true
+			RMDir /r `$0\$4\resources\app`
+		${EndIf}
+		FindNext $3 $4
+	${Loop}
+	FindClose $3
+	Pop $4
+	Pop $3
+	Pop $2
+	Pop $1
+FunctionEnd
+
+; Vencord. Its data (settings, themes, Quick CSS) is kept in Data\Vencord and
+; its files in Data\Vencord\dist; Vencord updates those itself after the
+; first download. While Discord runs, the version that starts gets a
+; resources\app folder: Electron prefers it over app.asar, so it starts
+; Vencord, and Vencord then starts Discord's own app.asar, which is never
+; changed. The folder is journaled and removed again when Discord closes.
+Function DSC_Vencord
+	Push $0
+	Push $1
+	Push $2
+	Push $3
+	StrCpy $0 `$EXEDIR\App\${APP}`
+	Call DSC_VencordClean
+	StrCpy $0 `$EXEDIR\App\${APPARM64}`
+	Call DSC_VencordClean
+	${If} $DscMod != vencord
+		Goto vencord_done
+	${EndIf}
+	CreateDirectory `${VCDIST}`
+	CreateDirectory `${VCDIR}\settings`
+	CreateDirectory `${VCDIR}\themes`
+	; Stops Node from reading a package.json further up the tree.
+	${IfNot} ${FileExists} `${VCDIST}\package.json`
+		StrCpy $0 `${VCDIST}\package.json`
+		StrCpy $1 "{}"
+		Call DSC_WriteText
+	${EndIf}
+	Call DSC_VencordOK
+	${If} $3 != true
+		InitPluginsDir
+		Call DSC_VencordDownload
+		Call DSC_VencordOK
+		${If} $3 != true
+			MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "Vencord couldn't be downloaded (curl exit code $0).$\r$\n$\r$\nDiscord starts without it this time; ${PORTABLEAPPNAME} tries again on the next launch."
+			Goto vencord_done
+		${EndIf}
+	${EndIf}
+	${GetParent} `$EXEDIR\App\$ProgramExecutable` $2
+	StrCpy $2 `$2\resources\app`
+	${If} ${FileExists} `$2\*.*`
+		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "Vencord can't be set up: Discord already has a $2 folder that ${PORTABLEAPPNAME} didn't make (another client mod's installer, for example).$\r$\n$\r$\nDiscord starts without Vencord."
+		Goto vencord_done
+	${EndIf}
+	${Journal::Record} Discord DIR $2 "" recursive ""
+	CreateDirectory $2
+	StrCpy $0 `$2\package.json`
+	StrCpy $1 `{$\r$\n$\t"name": "discord",$\r$\n$\t"main": "index.js"$\r$\n}$\r$\n`
+	Call DSC_WriteText
+	StrCpy $0 `$2\index.js`
+	StrCpy $1 `// Discord Portable: starts Discord through Vencord when its launcher asks$\r$\n// for it, and Discord's own app.asar otherwise.$\r$\nconst { join } = require("path");$\r$\nif (process.env.${VCENV}) {$\r$\n$\trequire(process.env.${VCENV});$\r$\n} else {$\r$\n$\tconst { app } = require("electron");$\r$\n$\tconst asarPath = join(__dirname, "..", "app.asar");$\r$\n$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n$\tapp.setAppPath(asarPath);$\r$\n$\trequire(require.main.filename);$\r$\n}$\r$\n`
+	Call DSC_WriteText
+	System::Call `kernel32::SetEnvironmentVariable(t "${VCENV}", t "${VCDIST}\patcher.js")`
+	System::Call `kernel32::SetEnvironmentVariable(t "VENCORD_USER_DATA_DIR", t "${VCDIR}")`
+	vencord_done:
+	Pop $3
+	Pop $2
 	Pop $1
 	Pop $0
 FunctionEnd
@@ -1331,7 +1529,9 @@ ${SegmentPre}
 !macroend
 
 ${SegmentPrePrimary}
+	Call DSC_ClientMod
 	Call DSC_BetterDiscord
+	Call DSC_Vencord
 	Call DSC_Apply
 !macroend
 

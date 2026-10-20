@@ -1,6 +1,6 @@
 # Discord Portable
 
-Discord Portable is a portable build of [Discord](https://discord.com/), the voice, video and text chat app. It runs the build that's native to the computer (x64 or ARM64), keeps itself up to date, and can load [BetterDiscord][BD] if you want it to.
+Discord Portable is a portable build of [Discord](https://discord.com/), the voice, video and text chat app. It runs the build that's native to the computer (x64 or ARM64), keeps itself up to date, and can load [BetterDiscord][BD] or [Vencord][VC] if you want it to.
 
 It's built with the [PortableApps Compiler][PACMAN] (pac-man): every change it makes to Windows is recorded first and undone when Discord closes, or on the next launch if something went wrong.
 
@@ -9,6 +9,7 @@ I was given permission by Discord Inc. to continue developing this project. They
 > _"As a result, if they happen to be released, we recommend to all of our users to be cautious when using third party applications with Discord in general and any usage is at their own risk."_
 
  [BD]: https://betterdiscord.app/
+ [VC]: https://vencord.dev/
  [PACMAN]: https://github.com/daemondevin/pac-man
 
 ## Download
@@ -24,8 +25,8 @@ Downloads are in the [Releases section][REL]. The package is in [PortableApps.co
 * **Native on every PC:** x64 and ARM64 builds. On Windows on ARM the launcher downloads and runs the ARM64 build instead of running x64 under emulation. (See [Builds](#builds))
 * **Updates itself:** checks Discord's official downloads at start, and also runs any update Discord installs for itself. A failed or interrupted update keeps the version you had. (See [Updates](#updates))
 * **Repairs itself:** if Discord's files are missing or damaged, the launcher offers to download Discord again instead of failing to start.
-* **Optional BetterDiscord:** one setting turns it on or off. (See [BetterDiscord](#betterdiscord))
-* **Your data travels with it:** settings, sign-in and BetterDiscord are kept in `Data`.
+* **Optional client mods:** BetterDiscord or Vencord, chosen with one setting. (See [Client mods](#client-mods))
+* **Your data travels with it:** settings, sign-in and your client mod's plugins, themes and settings are kept in `Data`.
 * **Leaves nothing behind:** the `discord://` link, the "Open Discord" at startup entry, the uninstall entry and the shortcuts Discord makes for itself only exist while it runs. An installed Discord's are put back exactly as they were.
 * **No administrator rights:** everything is done for the current user only.
 
@@ -47,14 +48,14 @@ Downloads are in the [Releases section][REL]. The package is in [PortableApps.co
 AdditionalParameters=
 UpdateCheck=true
 Architecture=auto
-BetterDiscord=false
+ClientMod=none
 ```
 
 | Key | Values | Default | What it does |
 | --- | --- | --- | --- |
 | `UpdateCheck` | `true`, `false` | `true` | Check for a new Discord at start and offer to update. |
 | `Architecture` | `auto`, `x64`, `arm64` | `auto` | Which build to run. `auto` picks the native one. |
-| `BetterDiscord` | `true`, `false` | `false` | Load BetterDiscord into Discord. |
+| `ClientMod` | `none`, `BetterDiscord`, `Vencord` | `none` | Load a client mod into Discord. See [Client mods](#client-mods). |
 | `AdditionalParameters` | text | empty | Extra command line switches passed to Discord. |
 
 ## Builds
@@ -90,20 +91,31 @@ A build can't be replaced while it's in use. If the update says so, quit Discord
 
 If the package has no Discord it can run, or Discord's own code (`resources\app.asar`) is missing or empty, the launcher offers to download Discord before it starts. Copies that went through a sync tool or source control are the usual reason for empty files.
 
-## BetterDiscord
+## Client mods
 
-Set `BetterDiscord=true` to use [BetterDiscord][BD].
+Set `ClientMod=BetterDiscord` or `ClientMod=Vencord` to load one of them into Discord, or `none` to run Discord without one. Only one can be loaded at a time; switching is just a matter of changing the setting, and each keeps its own plugins, themes and settings.
 
-* The first time, the launcher downloads the latest `betterdiscord.asar` from BetterDiscord's GitHub releases. After that, BetterDiscord updates itself from its own settings.
-* BetterDiscord's folder (plugins, themes, custom CSS and settings) is kept in `Data\BetterDiscord`. Put plugins in `Data\BetterDiscord\plugins` and themes in `Data\BetterDiscord\themes`, or use the buttons in BetterDiscord's settings.
-* Discord's core module is changed so that it loads BetterDiscord only when the launcher asks for it. Discord started any other way, or with `BetterDiscord=false`, runs unmodded, and `BetterDiscord=false` puts the original module back.
+Both are downloaded from their official GitHub releases the first time, and update themselves from their own settings after that. Discord started any other way than through the launcher runs unmodded.
+
+Client mods are third-party modifications. Using them is against Discord's Terms of Service, so it's at your own risk.
+
+### BetterDiscord
+
+* Its folder (plugins, themes, custom CSS and settings) is kept in `Data\BetterDiscord`. Put plugins in `Data\BetterDiscord\plugins` and themes in `Data\BetterDiscord\themes`, or use the buttons in BetterDiscord's settings.
+* Discord's core module is changed so that it loads BetterDiscord only when the launcher asks for it, and switching to another setting puts the original module back.
 
 > [!NOTE]
 > Discord downloads its core module the first time a new version starts, after the launcher has already set up BetterDiscord. BetterDiscord then shows up from the next start. The same happens when Discord updates its core module.
 
-Older versions of Discord Portable kept BetterDiscord in `App\BetterDiscord`. It's moved to `Data\BetterDiscord` the first time the new launcher runs, or when the new version is installed over the old one.
+Older versions of Discord Portable kept BetterDiscord in `App\BetterDiscord`. It's moved to `Data\BetterDiscord` the first time the new launcher runs, or when the new version is installed over the old one. Their `BetterDiscord=true` setting still works as long as `ClientMod=` isn't set.
 
-BetterDiscord is a third-party modification. Using it is against Discord's Terms of Service, so it's at your own risk.
+### Vencord
+
+* Its settings, themes and Quick CSS are kept in `Data\Vencord`, and its files in `Data\Vencord\dist`.
+* None of Discord's files are changed. While Discord runs, the version that starts gets a small `resources\app` folder, which Electron loads instead of Discord's `app.asar`. It starts Vencord, and Vencord starts Discord's own `app.asar`, the same way Vencord's own installer can set it up. The folder is removed again when Discord closes, or on the next launch if Discord didn't close properly.
+* Vencord works from the first start, also right after the launcher updates Discord. If Discord installs a new version of itself while it runs and restarts into it, that restart runs without Vencord until the next launch.
+
+If an installed Vencord or another mod's installer already put a `resources\app` folder into the portable Discord, the launcher leaves it alone and starts Discord without Vencord, and says so.
 
 ## Data
 
@@ -111,8 +123,9 @@ BetterDiscord is a third-party modification. Using it is against Discord's Terms
 | --- | --- |
 | `%APPDATA%\discord` (settings, sign-in, cache) | `Data\AppData\discord` |
 | `%APPDATA%\BetterDiscord` | `Data\BetterDiscord` |
+| `%APPDATA%\Vencord` | `Data\Vencord` |
 
-While Discord runs, both are linked into `Data` with NTFS junctions, so nothing is copied back and forth. If an installed Discord already has either folder, it's moved aside for the session and put back when Discord Portable closes.
+While Discord runs, all three are linked into `Data` with NTFS junctions, so nothing is copied back and forth. If an installed Discord or client mod already has any of these folders, it's moved aside for the session and put back when Discord Portable closes.
 
 > [!IMPORTANT]
 > Junctions can only point to a local drive. Running from a network share isn't supported.
@@ -133,7 +146,7 @@ The launcher is built with the [PortableApps Compiler][PACMAN]. Its configuratio
 | --- | --- |
 | `App\AppInfo\appinfo.ini` | Package details and version |
 | `App\AppInfo\Launcher\DiscordPortable.ini` | The launcher configuration: the data links |
-| `App\AppInfo\Launcher\custom.nsh` | Build and version selection, the updater, BetterDiscord and the session changes |
+| `App\AppInfo\Launcher\custom.nsh` | Build and version selection, the updater, the client mods and the session changes |
 | `Other\Source\7-Zip` | The 7-Zip the updater uses, embedded in the launcher at compile time |
 
 Point PortableApps Compiler at the package folder and compile. When cloning this project, either copy a Discord installation into `App\Discord` or let the launcher download Discord the first time it runs.
@@ -141,7 +154,7 @@ Point PortableApps Compiler at the package folder and compile. When cloning this
 ## Credits
 
 * Discord Portable is a redistribution of the [Discord](https://discord.com/) app, developed by [Discord Inc.](https://discord.com/company)
-* [BetterDiscord][BD] by the BetterDiscord team, downloaded on request.
+* [BetterDiscord][BD] by the BetterDiscord team and [Vencord][VC] by Vendicated and contributors, downloaded on request.
 * The updater uses [7-Zip](https://www.7-zip.org/) by Igor Pavlov, licensed under the GNU LGPL. See `Other\Source\7-Zip\License.txt`.
 * [PortableApps.com Platform][PAP] by [PortableApps.com][PA].
 * [PortableApps Compiler][PACMAN] developed by [daemon.devin](https://github.com/daemondevin).

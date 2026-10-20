@@ -809,6 +809,11 @@ Function DSC_Extract
 	${EndIf}
 	CopyFiles /SILENT `$0\Update.exe` $3
 	CopyFiles /SILENT `$0\RELEASES` `$3\packages`
+	; Discord's installer also gives the build folder the updater database
+	; that ships with the app, which records this version as installed.
+	; Without it Discord's updater tries to install the version that is
+	; already running and stops with an InconsistentInstallerState error.
+	CopyFiles /SILENT `$3\app-$DscVer\installer.db` $3
 	StrCpy $0 `$3\app-$DscVer`
 	Call DSC_UnescapeTree
 	; The new build has to be complete and the version the download promised.
@@ -1007,6 +1012,40 @@ Function DSC_Update
 	update_done:
 	Call DSC_ProgressClose
 	RMDir /r `${UPD}`
+	Pop $1
+	Pop $0
+FunctionEnd
+
+; Gives the build folder of the Discord that runs the updater database that
+; ships with it (app-<version>\installer.db) when it has none, or only the
+; empty one Discord's updater makes when it starts without it (12 KB, just
+; an install id). That is what Discord's installer does; without it the
+; updater tries to install the running version again and stops with an
+; InconsistentInstallerState error. A database in use is always bigger: it
+; records the installed version and its files.
+Function DSC_SeedDB
+	Push $0
+	Push $1
+	Push $2
+	Push $3
+	${GetParent} `$EXEDIR\App\$ProgramExecutable` $1
+	${GetParent} $1 $0
+	${If} ${FileExists} `$1\installer.db`
+		ClearErrors
+		FileOpen $2 `$0\installer.db` r
+		${IfNot} ${Errors}
+			FileSeek $2 0 END $3
+			FileClose $2
+			${If} $3 > 12288
+				Goto seed_done
+			${EndIf}
+		${EndIf}
+		Delete `$0\installer.db`
+		CopyFiles /SILENT `$1\installer.db` $0
+	${EndIf}
+	seed_done:
+	Pop $3
+	Pop $2
 	Pop $1
 	Pop $0
 FunctionEnd
@@ -1270,6 +1309,7 @@ FunctionEnd
 		Call DSC_Repair
 		Call DSC_Select
 		Call DSC_Bootstrap
+		Call DSC_SeedDB
 	${EndIf}
 !macroend
 
@@ -1286,6 +1326,7 @@ ${SegmentPre}
 	${If} ${PrimaryInstance}
 		Call DSC_Update
 		Call DSC_Select
+		Call DSC_SeedDB
 	${EndIf}
 !macroend
 

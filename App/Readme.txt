@@ -1,44 +1,5 @@
-################################################################################
-##                             ADVANCED USERS                                 ##
-################################################################################
-The files in this directory mirror that of an installed version in
-Program Files or Program Files (x86).
+This directory contains files used by the portable app and should generally not be accessed directly by users except in specific instances of using plugins or other documented additions to a given app (see below).
 
-Usually.. there is no need for end-users to edit these files.
-These files are important for proper functionality.
+User files, data, or settings should not be stored within the App directory or its subdirectories. Any data stored within the App directory structure will likely be deleted on upgrades.
 
-However.. there are situations where one could add or remove features.
-This of course requires sufficient knowledge of the application and
-the PortableApps specifications.
-
-Typically.. only advanced users should edit or modify files in this
-directory.
-
-################################################################################
-##                             EXAMPLE SCENARIO                               ##
-################################################################################
-
-Photoshop supports 3rd party plugins.
-To add such features would require copying the 3rd party plugin into
-this directory at the appropriate location.
-
-Additionally.. additional entries may be required in the launcher file
-for correct functionality.
-
-An example of this would be if the 3rd party plugin leaves trash in the
-registry or file-system. To tell the launcher to clean up these additional
-files at exit would require adding a line or two in the launcher file.
-
-Please refer to the online manual for further assistance.
-
-[Online Manual]
-http://portableapps.com/manuals/PortableApps.comLauncher/
-
-[Registry]
-ref/launcher.ini/registry.html
-
-[Files]
-ref/launcher.ini/filesystem.html
-
-[Custom]
-advanced/custom.html#custom-code
+An exception to this is apps that use plugins. Generally, these directories will be preserved on upgrades. You can confirm which directories are preserved within the installer.ini file inside the App\AppInfo directory. If there are any plugin directories which are not preserved which should be, please let the publisher of this portable app know so they can address the issue.

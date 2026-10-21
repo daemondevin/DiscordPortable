@@ -21,17 +21,17 @@
 ;                 BetterDiscord: its folder lives in Data\BetterDiscord,
 ;                 betterdiscord.asar is downloaded when it's missing, and
 ;                 Discord's core module is told to load it only when the
-;                 launcher asks for it. Vencord: its data and files live in
-;                 Data\Vencord, and for the session the running version gets
-;                 a resources\app loader that starts Vencord, which starts
-;                 Discord's own app.asar. Each mod updates itself after the
-;                 first download.
+;                 launcher asks for it. Vencord and Equicord: their data and
+;                 files live in Data\Vencord and Data\Equicord, and for the
+;                 session the running version gets a resources\app loader
+;                 that starts the mod, which starts Discord's own app. Each
+;                 mod updates itself after the first download.
 ;   Discord       Journaled session changes: the discord:// protocol, the
 ;                 Run at startup entry, the uninstall entry and the shortcuts
 ;                 Discord makes for itself, all put back the way they were
 ;                 when it closes.
 ;
-; The AppData, BetterDiscord and Vencord links are not done here: they are
+; The AppData and client mod folder links are not done here: they are
 ; declared in DiscordPortable.ini and handled by the journaled Symlinks
 ; segment.
 
@@ -80,7 +80,10 @@ Var DlText
 !define VCDIR       `${DATA}\Vencord`
 !define VCDIST      `${VCDIR}\dist`
 !define VCURL       `https://github.com/Vendicated/Vencord/releases/download/devbuild`
-!define VCENV       `DISCORDPORTABLE_VENCORD`
+!define EQDIR       `${DATA}\Equicord`
+!define EQASAR      `${EQDIR}\equicord.asar`
+!define EQURL       `https://github.com/Equicord/Equicord/releases/latest/download/desktop.asar`
+!define MODENV      `DISCORDPORTABLE_CLIENTMOD`
 !define RUNKEY      `Software\Microsoft\Windows\CurrentVersion\Run`
 !define APPROVED    `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
 !define UNINSTKEY   `Software\Microsoft\Windows\CurrentVersion\Uninstall\Discord`
@@ -1261,15 +1264,17 @@ FunctionEnd
 
 ; Client mods
 
-; Sets $DscMod to the client mod to load: betterdiscord, vencord or none,
-; from ClientMod= in DiscordPortable.ini. Packages set up before ClientMod
-; existed have BetterDiscord=true instead, which still works.
+; Sets $DscMod to the client mod to load: betterdiscord, vencord, equicord
+; or none, from ClientMod= in DiscordPortable.ini. Packages set up before
+; ClientMod existed have BetterDiscord=true instead, which still works.
 Function DSC_ClientMod
 	Push $0
 	StrCpy $DscMod none
 	${ReadUserConfig} $0 ClientMod
 	${If} $0 == vencord
 		StrCpy $DscMod vencord
+	${ElseIf} $0 == equicord
+		StrCpy $DscMod equicord
 	${ElseIf} $0 == betterdiscord
 		StrCpy $DscMod betterdiscord
 	${ElseIf} $0 == ""
@@ -1281,38 +1286,58 @@ Function DSC_ClientMod
 	Pop $0
 FunctionEnd
 
-; Sets $3 to true when Vencord's files are all in Data\Vencord\dist.
-Function DSC_VencordOK
+; Sets $3 to true when file $0 is bigger than $1 bytes, else false.
+Function DSC_FileBigger
 	Push $4
 	Push $5
 	StrCpy $3 false
-	${If} ${FileExists} `${VCDIST}\preload.js`
-	${AndIf} ${FileExists} `${VCDIST}\renderer.js`
-	${AndIf} ${FileExists} `${VCDIST}\renderer.css`
-		ClearErrors
-		FileOpen $4 `${VCDIST}\patcher.js` r
-		${IfNot} ${Errors}
-			FileSeek $4 0 END $5
-			FileClose $4
-			${If} $5 > 10240
-				StrCpy $3 true
-			${EndIf}
+	ClearErrors
+	FileOpen $4 $0 r
+	${IfNot} ${Errors}
+		FileSeek $4 0 END $5
+		FileClose $4
+		${If} $5 > $1
+			StrCpy $3 true
 		${EndIf}
 	${EndIf}
 	Pop $5
 	Pop $4
 FunctionEnd
 
-; Downloads Vencord's files from its GitHub releases into Data\Vencord\dist,
-; all or nothing: each one is fetched next to its place first. Sets $0 to
-; curl's exit code for the first file that failed, or 0.
-Function DSC_VencordDownload
+; Sets $3 to true when the files of the client mod in $DscMod are all there.
+; Vencord comes as four files in Data\Vencord\dist, Equicord as one asar in
+; Data\Equicord.
+Function DSC_ModOK
+	Push $0
 	Push $1
-	Push $2
-	Push $3
-	StrCpy $DscKB 0
-	StrCpy $3 0
-	${ForEach} $2 1 4 + 1
+	StrCpy $3 false
+	StrCpy $1 10240
+	${If} $DscMod == vencord
+		${If} ${FileExists} `${VCDIST}\preload.js`
+		${AndIf} ${FileExists} `${VCDIST}\renderer.js`
+		${AndIf} ${FileExists} `${VCDIST}\renderer.css`
+			StrCpy $0 `${VCDIST}\patcher.js`
+			Call DSC_FileBigger
+		${EndIf}
+	${Else}
+		StrCpy $0 `${EQASAR}`
+		StrCpy $1 102400
+		Call DSC_FileBigger
+	${EndIf}
+	Pop $1
+	Pop $0
+FunctionEnd
+
+; Sets $1 to the file name of download number $2 (1 to 4) of the client mod
+; in $DscMod and $DscUrl to its URL, or $1 to "" when there is no such file.
+Function DSC_ModFile
+	StrCpy $1 ""
+	${If} $DscMod == equicord
+		${If} $2 = 1
+			StrCpy $1 equicord.asar
+			StrCpy $DscUrl `${EQURL}`
+		${EndIf}
+	${Else}
 		${Select} $2
 			${Case} 1
 				StrCpy $1 patcher.js
@@ -1323,120 +1348,180 @@ Function DSC_VencordDownload
 			${Case} 4
 				StrCpy $1 renderer.css
 		${EndSelect}
-		${If} $3 = 0
-			StrCpy $DscUrl `${VCURL}/$1`
-			StrCpy $DlText "Downloading Vencord ($1).."
-			StrCpy $1 `${VCDIST}\$1.download`
+		StrCpy $DscUrl `${VCURL}/$1`
+	${EndIf}
+FunctionEnd
+
+; Downloads the files of the client mod in $DscMod from its GitHub releases
+; into folder $R3, all or nothing: each one is fetched next to its place
+; first. Sets $0 to curl's exit code for the first file that failed, or 0.
+Function DSC_ModDownload
+	Push $1
+	Push $2
+	Push $3
+	Push $4
+	StrCpy $DscKB 0
+	StrCpy $3 0
+	${ForEach} $2 1 4 + 1
+		Call DSC_ModFile
+		${If} $1 != ""
+		${AndIf} $3 = 0
+			StrCpy $DlText "Downloading $R4 ($1).."
+			StrCpy $1 `$R3\$1.download`
 			Call DSC_Fetch
 			StrCpy $3 $0
 		${EndIf}
 	${Next}
 	${ForEach} $2 1 4 + 1
-		${Select} $2
-			${Case} 1
-				StrCpy $1 patcher.js
-			${Case} 2
-				StrCpy $1 preload.js
-			${Case} 3
-				StrCpy $1 renderer.js
-			${Case} 4
-				StrCpy $1 renderer.css
-		${EndSelect}
-		${If} $3 = 0
-			Delete `${VCDIST}\$1`
-			Rename `${VCDIST}\$1.download` `${VCDIST}\$1`
+		Call DSC_ModFile
+		${If} $1 != ""
+			${If} $3 = 0
+				Delete `$R3\$1`
+				Rename `$R3\$1.download` `$R3\$1`
+			${EndIf}
+			Delete `$R3\$1.download`
 		${EndIf}
-		Delete `${VCDIST}\$1.download`
 	${Next}
 	StrCpy $0 $3
-	Pop $3
-	Pop $2
-	Pop $1
-FunctionEnd
-
-; Removes the Vencord loader (resources\app) from every Discord version in
-; build folder $0, when it is the one this launcher writes. The journal
-; removes it when Discord closes; this catches copies that missed that,
-; such as a version Discord installed while it ran.
-Function DSC_VencordClean
-	Push $1
-	Push $2
-	Push $3
-	Push $4
-	FindFirst $3 $4 `$0\app-*`
-	${DoWhile} $4 != ""
-		StrCpy $1 `$0\$4\resources\app`
-		Push $0
-		StrCpy $0 `$1\index.js`
-		StrCpy $2 ${VCENV}
-		Call DSC_FileHas
-		Pop $0
-		${If} $1 == true
-			RMDir /r `$0\$4\resources\app`
-		${EndIf}
-		FindNext $3 $4
-	${Loop}
-	FindClose $3
 	Pop $4
 	Pop $3
 	Pop $2
 	Pop $1
 FunctionEnd
 
-; Vencord. Its data (settings, themes, Quick CSS) is kept in Data\Vencord and
-; its files in Data\Vencord\dist; Vencord updates those itself after the
-; first download. While Discord runs, the version that starts gets a
-; resources\app folder: Electron prefers it over app.asar, so it starts
-; Vencord, and Vencord then starts Discord's own app.asar, which is never
-; changed. The folder is journaled and removed again when Discord closes.
-Function DSC_Vencord
+; Removes what the client mod loader left in every Discord version in build
+; folder $0: the resources\app folder this launcher writes, and the copy of
+; app.asar Equicord starts Discord from (resources\_app.asar) when app.asar
+; itself is still Discord's own. The journal removes both when Discord
+; closes; this catches copies that missed that, such as a version Discord
+; installed while it ran. A _app.asar next to a small app.asar belongs to an
+; installed mod's own installer and is left alone.
+Function DSC_ModClean
+	Push $1
+	Push $2
+	Push $3
+	Push $4
+	Push $5
+	FindFirst $4 $5 `$0\app-*`
+	${DoWhile} $5 != ""
+		Push $0
+		StrCpy $0 `$0\$5\resources\app\index.js`
+		StrCpy $2 DISCORDPORTABLE_
+		Call DSC_FileHas
+		Pop $0
+		${If} $1 == true
+			RMDir /r `$0\$5\resources\app`
+		${EndIf}
+		${If} ${FileExists} `$0\$5\resources\_app.asar`
+			Push $0
+			StrCpy $0 `$0\$5\resources\app.asar`
+			StrCpy $1 131072
+			Call DSC_FileBigger
+			Pop $0
+			${If} $3 == true
+				Delete `$0\$5\resources\_app.asar`
+			${EndIf}
+		${EndIf}
+		FindNext $4 $5
+	${Loop}
+	FindClose $4
+	Pop $5
+	Pop $4
+	Pop $3
+	Pop $2
+	Pop $1
+FunctionEnd
+
+; Vencord and Equicord. Both keep their data (settings, themes, Quick CSS)
+; and their files in their own folder in Data, and update their files
+; themselves after the first download. While Discord runs, the version that
+; starts gets a resources\app folder: Electron prefers it over app.asar, so
+; it starts the mod, and the mod then starts Discord's own app. Vencord
+; starts app.asar itself, which is never changed; Equicord only starts
+; resources\_app.asar, so that is made a hard link to app.asar (a copy when
+; the drive can't hold hard links). Both are journaled and removed again
+; when Discord closes.
+Function DSC_LoaderMod
 	Push $0
 	Push $1
 	Push $2
 	Push $3
+	Push $R3
+	Push $R4
+	Push $R5
 	StrCpy $0 `$EXEDIR\App\${APP}`
-	Call DSC_VencordClean
+	Call DSC_ModClean
 	StrCpy $0 `$EXEDIR\App\${APPARM64}`
-	Call DSC_VencordClean
-	${If} $DscMod != vencord
-		Goto vencord_done
+	Call DSC_ModClean
+	${If} $DscMod == vencord
+		StrCpy $R3 `${VCDIST}`
+		StrCpy $R4 Vencord
+		StrCpy $R5 `${VCDIST}\patcher.js`
+		CreateDirectory `${VCDIR}\settings`
+		CreateDirectory `${VCDIR}\themes`
+	${ElseIf} $DscMod == equicord
+		StrCpy $R3 `${EQDIR}`
+		StrCpy $R4 Equicord
+		StrCpy $R5 `${EQASAR}`
+		CreateDirectory `${EQDIR}\settings`
+		CreateDirectory `${EQDIR}\themes`
+	${Else}
+		Goto loader_done
 	${EndIf}
-	CreateDirectory `${VCDIST}`
-	CreateDirectory `${VCDIR}\settings`
-	CreateDirectory `${VCDIR}\themes`
+	CreateDirectory $R3
 	; Stops Node from reading a package.json further up the tree.
-	${IfNot} ${FileExists} `${VCDIST}\package.json`
-		StrCpy $0 `${VCDIST}\package.json`
+	${If} $DscMod == vencord
+	${AndIfNot} ${FileExists} `$R3\package.json`
+		StrCpy $0 `$R3\package.json`
 		StrCpy $1 "{}"
 		Call DSC_WriteText
 	${EndIf}
-	Call DSC_VencordOK
+	Call DSC_ModOK
 	${If} $3 != true
 		InitPluginsDir
-		Call DSC_VencordDownload
-		Call DSC_VencordOK
+		Call DSC_ModDownload
+		Call DSC_ModOK
 		${If} $3 != true
-			MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "Vencord couldn't be downloaded (curl exit code $0).$\r$\n$\r$\nDiscord starts without it this time; ${PORTABLEAPPNAME} tries again on the next launch."
-			Goto vencord_done
+			MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 couldn't be downloaded (curl exit code $0).$\r$\n$\r$\nDiscord starts without it this time; ${PORTABLEAPPNAME} tries again on the next launch."
+			Goto loader_done
 		${EndIf}
 	${EndIf}
 	${GetParent} `$EXEDIR\App\$ProgramExecutable` $2
-	StrCpy $2 `$2\resources\app`
-	${If} ${FileExists} `$2\*.*`
-		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "Vencord can't be set up: Discord already has a $2 folder that ${PORTABLEAPPNAME} didn't make (another client mod's installer, for example).$\r$\n$\r$\nDiscord starts without Vencord."
-		Goto vencord_done
+	StrCpy $2 `$2\resources`
+	${If} ${FileExists} `$2\app\*.*`
+	${OrIf} ${FileExists} `$2\_app.asar`
+		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: Discord in $2 has already been changed by another client mod's installer.$\r$\n$\r$\nDiscord starts without $R4."
+		Goto loader_done
 	${EndIf}
-	${Journal::Record} Discord DIR $2 "" recursive ""
-	CreateDirectory $2
-	StrCpy $0 `$2\package.json`
+	${If} $DscMod == equicord
+		${Journal::Record} Discord FILE `$2\_app.asar` "" "" ""
+		System::Call `kernel32::CreateHardLinkW(w "$2\_app.asar", w "$2\app.asar", p 0) i .r0`
+		${If} $0 = 0
+			CopyFiles /SILENT `$2\app.asar` `$2\_app.asar`
+		${EndIf}
+		${IfNot} ${FileExists} `$2\_app.asar`
+			MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "Equicord can't be set up: Discord's app.asar couldn't be linked to _app.asar in $2.$\r$\n$\r$\nDiscord starts without Equicord."
+			Goto loader_done
+		${EndIf}
+	${EndIf}
+	${Journal::Record} Discord DIR `$2\app` "" recursive ""
+	CreateDirectory `$2\app`
+	StrCpy $0 `$2\app\package.json`
 	StrCpy $1 `{$\r$\n$\t"name": "discord",$\r$\n$\t"main": "index.js"$\r$\n}$\r$\n`
 	Call DSC_WriteText
-	StrCpy $0 `$2\index.js`
-	StrCpy $1 `// Discord Portable: starts Discord through Vencord when its launcher asks$\r$\n// for it, and Discord's own app.asar otherwise.$\r$\nconst { join } = require("path");$\r$\nif (process.env.${VCENV}) {$\r$\n$\trequire(process.env.${VCENV});$\r$\n} else {$\r$\n$\tconst { app } = require("electron");$\r$\n$\tconst asarPath = join(__dirname, "..", "app.asar");$\r$\n$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n$\tapp.setAppPath(asarPath);$\r$\n$\trequire(require.main.filename);$\r$\n}$\r$\n`
+	StrCpy $0 `$2\app\index.js`
+	StrCpy $1 `// Discord Portable: starts Discord through the client mod its launcher asks$\r$\n// for, and Discord's own app.asar otherwise.$\r$\nconst { join } = require("path");$\r$\nif (process.env.${MODENV}) {$\r$\n$\trequire(process.env.${MODENV});$\r$\n} else {$\r$\n$\tconst { app } = require("electron");$\r$\n$\tconst asarPath = join(__dirname, "..", "app.asar");$\r$\n$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n$\tapp.setAppPath(asarPath);$\r$\n$\trequire(require.main.filename);$\r$\n}$\r$\n`
 	Call DSC_WriteText
-	System::Call `kernel32::SetEnvironmentVariable(t "${VCENV}", t "${VCDIST}\patcher.js")`
-	System::Call `kernel32::SetEnvironmentVariable(t "VENCORD_USER_DATA_DIR", t "${VCDIR}")`
-	vencord_done:
+	System::Call `kernel32::SetEnvironmentVariable(t "${MODENV}", t "$R5")`
+	${If} $DscMod == vencord
+		System::Call `kernel32::SetEnvironmentVariable(t "VENCORD_USER_DATA_DIR", t "${VCDIR}")`
+	${Else}
+		System::Call `kernel32::SetEnvironmentVariable(t "EQUICORD_USER_DATA_DIR", t "${EQDIR}")`
+	${EndIf}
+	loader_done:
+	Pop $R5
+	Pop $R4
+	Pop $R3
 	Pop $3
 	Pop $2
 	Pop $1
@@ -1531,7 +1616,7 @@ ${SegmentPre}
 ${SegmentPrePrimary}
 	Call DSC_ClientMod
 	Call DSC_BetterDiscord
-	Call DSC_Vencord
+	Call DSC_LoaderMod
 	Call DSC_Apply
 !macroend
 

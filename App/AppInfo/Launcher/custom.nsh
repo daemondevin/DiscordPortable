@@ -23,8 +23,9 @@
 ;                 Discord's core module is told to load it only when the
 ;                 launcher asks for it. Vencord and Equicord: their data and
 ;                 files live in Data\Vencord and Data\Equicord, and for the
-;                 session the running version gets a resources\app loader
-;                 that starts the mod, which starts Discord's own app. Each
+;                 session the running version's app.asar is moved to
+;                 _app.asar and an app.asar loader folder takes its place,
+;                 which starts the mod, which starts Discord's own app. Each
 ;                 mod updates itself after the first download.
 ;   Discord       Journaled session changes: the discord:// protocol, the
 ;                 Run at startup entry, the uninstall entry and the shortcuts
@@ -1389,42 +1390,60 @@ Function DSC_ModDownload
 	Pop $1
 FunctionEnd
 
-; Removes what the client mod loader left in every Discord version in build
-; folder $0: the resources\app folder this launcher writes, and the copy of
-; app.asar Equicord starts Discord from (resources\_app.asar) when app.asar
-; itself is still Discord's own. The journal removes both when Discord
-; closes; this catches copies that missed that, such as a version Discord
-; installed while it ran. A _app.asar next to a small app.asar belongs to an
-; installed mod's own installer and is left alone.
+; Puts every Discord version in build folder $0 back the way Discord left
+; it, where an earlier session of this launcher missed that (the journal
+; normally does it when Discord closes):
+;   - an app.asar folder this launcher made, with Discord's own app.asar
+;     moved to _app.asar next to it: the folder goes, _app.asar goes back
+;   - a resources\app folder and a _app.asar copy of app.asar, which older
+;     versions of this launcher used
+; An app.asar folder or a _app.asar that some other client mod's installer
+; made is left alone.
 Function DSC_ModClean
 	Push $1
 	Push $2
 	Push $3
 	Push $4
 	Push $5
+	Push $6
 	FindFirst $4 $5 `$0\app-*`
 	${DoWhile} $5 != ""
+		StrCpy $6 `$0\$5\resources`
 		Push $0
-		StrCpy $0 `$0\$5\resources\app\index.js`
+		StrCpy $0 `$6\app.asar\index.js`
 		StrCpy $2 DISCORDPORTABLE_
 		Call DSC_FileHas
 		Pop $0
 		${If} $1 == true
-			RMDir /r `$0\$5\resources\app`
+		${AndIf} ${FileExists} `$6\_app.asar`
+			RMDir /r `$6\app.asar`
+			${IfNot} ${FileExists} `$6\app.asar`
+				Rename `$6\_app.asar` `$6\app.asar`
+			${EndIf}
 		${EndIf}
-		${If} ${FileExists} `$0\$5\resources\_app.asar`
+		Push $0
+		StrCpy $0 `$6\app\index.js`
+		StrCpy $2 DISCORDPORTABLE_
+		Call DSC_FileHas
+		Pop $0
+		${If} $1 == true
+			RMDir /r `$6\app`
+		${EndIf}
+		${If} ${FileExists} `$6\_app.asar`
+		${AndIfNot} ${FileExists} `$6\app.asar\*.*`
 			Push $0
-			StrCpy $0 `$0\$5\resources\app.asar`
+			StrCpy $0 `$6\app.asar`
 			StrCpy $1 131072
 			Call DSC_FileBigger
 			Pop $0
 			${If} $3 == true
-				Delete `$0\$5\resources\_app.asar`
+				Delete `$6\_app.asar`
 			${EndIf}
 		${EndIf}
 		FindNext $4 $5
 	${Loop}
 	FindClose $4
+	Pop $6
 	Pop $5
 	Pop $4
 	Pop $3
@@ -1435,12 +1454,14 @@ FunctionEnd
 ; Vencord and Equicord. Both keep their data (settings, themes, Quick CSS)
 ; and their files in their own folder in Data, and update their files
 ; themselves after the first download. While Discord runs, the version that
-; starts gets a resources\app folder: Electron prefers it over app.asar, so
-; it starts the mod, and the mod then starts Discord's own app. Vencord
-; starts app.asar itself, which is never changed; Equicord only starts
-; resources\_app.asar, so that is made a hard link to app.asar (a copy when
-; the drive can't hold hard links). Both are journaled and removed again
-; when Discord closes.
+; starts is set up the way the mods' own installers do it: Discord's
+; app.asar is moved to _app.asar, and an app.asar folder takes its place
+; that starts the mod, which then starts Discord from _app.asar. (Discord's
+; Electron only loads resources\app.asar, so a resources\app folder, which
+; older versions of this launcher used, is ignored.) One journal entry
+; covers both steps, and is safe to undo at every point in between: the
+; folder is removed and _app.asar moved back when Discord closes, or on the
+; next launch after a crash.
 Function DSC_LoaderMod
 	Push $0
 	Push $1
@@ -1488,30 +1509,37 @@ Function DSC_LoaderMod
 	${EndIf}
 	${GetParent} `$EXEDIR\App\$ProgramExecutable` $2
 	StrCpy $2 `$2\resources`
-	${If} ${FileExists} `$2\app\*.*`
+	${If} ${FileExists} `$2\app.asar\*.*`
 	${OrIf} ${FileExists} `$2\_app.asar`
+	${OrIf} ${FileExists} `$2\app\*.*`
 		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: Discord in $2 has already been changed by another client mod's installer.$\r$\n$\r$\nDiscord starts without $R4."
 		Goto loader_done
 	${EndIf}
-	${If} $DscMod == equicord
-		${Journal::Record} Discord FILE `$2\_app.asar` "" "" ""
-		System::Call `kernel32::CreateHardLinkW(w "$2\_app.asar", w "$2\app.asar", p 0) i .r0`
-		${If} $0 = 0
-			CopyFiles /SILENT `$2\app.asar` `$2\_app.asar`
-		${EndIf}
-		${IfNot} ${FileExists} `$2\_app.asar`
-			MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "Equicord can't be set up: Discord's app.asar couldn't be linked to _app.asar in $2.$\r$\n$\r$\nDiscord starts without Equicord."
-			Goto loader_done
-		${EndIf}
+	${IfNot} ${FileExists} `$2\app.asar`
+		Goto loader_done
 	${EndIf}
-	${Journal::Record} Discord DIR `$2\app` "" recursive ""
-	CreateDirectory `$2\app`
-	StrCpy $0 `$2\app\package.json`
+	${Journal::Record} DiscordMod DIR `$2\app.asar` `$2\_app.asar` recursive ""
+	ClearErrors
+	Rename `$2\app.asar` `$2\_app.asar`
+	${If} ${Errors}
+		${Journal::Discard} DiscordMod
+		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: Discord's app.asar in $2 couldn't be moved (is Discord still running?).$\r$\n$\r$\nDiscord starts without $R4."
+		Goto loader_done
+	${EndIf}
+	CreateDirectory `$2\app.asar`
+	StrCpy $0 `$2\app.asar\package.json`
 	StrCpy $1 `{$\r$\n$\t"name": "discord",$\r$\n$\t"main": "index.js"$\r$\n}$\r$\n`
 	Call DSC_WriteText
-	StrCpy $0 `$2\app\index.js`
-	StrCpy $1 `// Discord Portable: starts Discord through the client mod its launcher asks$\r$\n// for, and Discord's own app.asar otherwise.$\r$\nconst { join } = require("path");$\r$\nif (process.env.${MODENV}) {$\r$\n$\trequire(process.env.${MODENV});$\r$\n} else {$\r$\n$\tconst { app } = require("electron");$\r$\n$\tconst asarPath = join(__dirname, "..", "app.asar");$\r$\n$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n$\tapp.setAppPath(asarPath);$\r$\n$\trequire(require.main.filename);$\r$\n}$\r$\n`
+	StrCpy $0 `$2\app.asar\index.js`
+	StrCpy $1 `// Discord Portable: starts Discord through the client mod its launcher asks$\r$\n// for, and Discord's own app (moved to _app.asar) otherwise.$\r$\nconst { join } = require("path");$\r$\nif (process.env.${MODENV}) {$\r$\n$\trequire(process.env.${MODENV});$\r$\n} else {$\r$\n$\tconst { app } = require("electron");$\r$\n$\tconst asarPath = join(__dirname, "..", "_app.asar");$\r$\n$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n$\tapp.setAppPath(asarPath);$\r$\n$\trequire(require.main.filename);$\r$\n}$\r$\n`
 	Call DSC_WriteText
+	${IfNot} ${FileExists} `$2\app.asar\index.js`
+		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: the loader couldn't be written in $2.$\r$\n$\r$\nDiscord starts without $R4."
+		RMDir /r `$2\app.asar`
+		Rename `$2\_app.asar` `$2\app.asar`
+		${Journal::Discard} DiscordMod
+		Goto loader_done
+	${EndIf}
 	System::Call `kernel32::SetEnvironmentVariable(t "${MODENV}", t "$R5")`
 	${If} $DscMod == vencord
 		System::Call `kernel32::SetEnvironmentVariable(t "VENCORD_USER_DATA_DIR", t "${VCDIR}")`
@@ -1589,6 +1617,15 @@ FunctionEnd
 ; InstanceManagement segment, Init, right before the executable is looked for.
 !macro EXE
 	${If} $SecondaryLaunch != true
+		; A crash during a Vencord or Equicord session leaves Discord's
+		; app.asar moved aside. Put it back before anything checks it (the
+		; journal would too, but only after this).
+		Push $0
+		StrCpy $0 `$EXEDIR\App\${APP}`
+		Call DSC_ModClean
+		StrCpy $0 `$EXEDIR\App\${APPARM64}`
+		Call DSC_ModClean
+		Pop $0
 		Call DSC_Repair
 		Call DSC_Select
 		Call DSC_Bootstrap
@@ -1621,6 +1658,10 @@ ${SegmentPrePrimary}
 !macroend
 
 ${SegmentPostPrimary}
+	${Journal::HasEntries} DiscordMod $R0
+	${If} $R0 > 0
+		${Journal::Rollback} DiscordMod
+	${EndIf}
 	${Journal::HasEntries} Discord $R0
 	${If} $R0 > 0
 		${Journal::Rollback} Discord

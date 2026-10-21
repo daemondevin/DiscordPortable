@@ -119,8 +119,8 @@ Equicord is a fork of Vencord with more plugins; the launcher sets both up the s
 | Settings, themes, Quick CSS | `Data\Vencord` | `Data\Equicord` |
 | Its files | `Data\Vencord\dist` | `Data\Equicord\equicord.asar` |
 
-* None of Discord's files are changed. While Discord runs, the version that starts gets a small `resources\app` folder, which Electron loads instead of Discord's `app.asar`. It starts the mod, and the mod starts Discord's own app, the same way the mods' own installers can set it up.
-* Equicord starts Discord from `resources\_app.asar` rather than `app.asar`, so for Equicord that name is made a hard link to `app.asar` (a copy on drives that can't hold hard links, such as FAT32 or exFAT USB sticks).
+* While Discord runs, the version that starts is set up the way the mods' own installers do it: Discord's `resources\app.asar` is moved to `_app.asar`, and a small `app.asar` folder takes its place. It starts the mod, and the mod starts Discord's own app from `_app.asar`.
+* Nothing is copied: the move is a rename, so it works the same on NTFS, FAT32 and exFAT drives.
 * Everything is removed again when Discord closes, or on the next launch if Discord didn't close properly.
 * The mod works from the first start, also right after the launcher updates Discord. If Discord installs a new version of itself while it runs and restarts into it, that restart runs without the mod until the next launch.
 

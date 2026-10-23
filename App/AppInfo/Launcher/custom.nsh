@@ -61,6 +61,7 @@ Var DscSwapped
 Var DscTool
 Var DscForce
 Var DscMod
+Var DscLogText
 Var DlWindow
 Var DlLabel
 Var DlBar
@@ -85,6 +86,8 @@ Var DlText
 !define EQASAR      `${EQDIR}\equicord.asar`
 !define EQURL       `https://github.com/Equicord/Equicord/releases/latest/download/desktop.asar`
 !define MODENV      `DISCORDPORTABLE_CLIENTMOD`
+!define LOGENV      `DISCORDPORTABLE_LOG`
+!define MODLOG      `${DATA}\settings\ClientMod.log`
 !define RUNKEY      `Software\Microsoft\Windows\CurrentVersion\Run`
 !define APPROVED    `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
 !define UNINSTKEY   `Software\Microsoft\Windows\CurrentVersion\Uninstall\Discord`
@@ -1121,6 +1124,26 @@ Function DSC_WriteText
 	Pop $2
 FunctionEnd
 
+; Adds line $DscLogText to Data\settings\ClientMod.log, the client mod log that
+; this launcher and the loader it writes for Vencord and Equicord share.
+Function DSC_Log
+	Push $0
+	CreateDirectory `${DATA}\settings`
+	ClearErrors
+	FileOpen $0 `${MODLOG}` a
+	${IfNot} ${Errors}
+		FileSeek $0 0 END
+		FileWrite $0 `[launcher] $DscLogText$\r$\n`
+		FileClose $0
+	${EndIf}
+	Pop $0
+FunctionEnd
+!define DscLog `!insertmacro _DscLog`
+!macro _DscLog _TEXT
+	StrCpy $DscLogText `${_TEXT}`
+	Call DSC_Log
+!macroend
+
 ; Sets $1 to true when file $0 contains text $2 (case insensitive), else
 ; false. Only for small files: Discord's core loader is one or two lines.
 Function DSC_FileHas
@@ -1284,6 +1307,9 @@ Function DSC_ClientMod
 			StrCpy $DscMod betterdiscord
 		${EndIf}
 	${EndIf}
+	; A fresh log for every launch.
+	Delete `${MODLOG}`
+	${DscLog} "${PORTABLEAPPNAME} ${PACKAGE_VERSION}, ClientMod=$0 in ${APPNAME}.ini: loading $DscMod"
 	Pop $0
 FunctionEnd
 
@@ -1487,6 +1513,7 @@ Function DSC_LoaderMod
 		CreateDirectory `${EQDIR}\settings`
 		CreateDirectory `${EQDIR}\themes`
 	${Else}
+		${DscLog} "No Vencord or Equicord loader needed."
 		Goto loader_done
 	${EndIf}
 	CreateDirectory $R3
@@ -1503,19 +1530,23 @@ Function DSC_LoaderMod
 		Call DSC_ModDownload
 		Call DSC_ModOK
 		${If} $3 != true
+			${DscLog} "$R4 download failed (curl exit code $0)."
 			MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 couldn't be downloaded (curl exit code $0).$\r$\n$\r$\nDiscord starts without it this time; ${PORTABLEAPPNAME} tries again on the next launch."
 			Goto loader_done
 		${EndIf}
 	${EndIf}
+	${DscLog} "$R4 files OK; Discord to start: App\$ProgramExecutable"
 	${GetParent} `$EXEDIR\App\$ProgramExecutable` $2
 	StrCpy $2 `$2\resources`
 	${If} ${FileExists} `$2\app.asar\*.*`
 	${OrIf} ${FileExists} `$2\_app.asar`
 	${OrIf} ${FileExists} `$2\app\*.*`
+		${DscLog} "Not set up: $2 already has an app.asar folder, _app.asar or app folder from another installer."
 		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: Discord in $2 has already been changed by another client mod's installer.$\r$\n$\r$\nDiscord starts without $R4."
 		Goto loader_done
 	${EndIf}
 	${IfNot} ${FileExists} `$2\app.asar`
+		${DscLog} "Not set up: $2\app.asar doesn't exist."
 		Goto loader_done
 	${EndIf}
 	${Journal::Record} DiscordMod DIR `$2\app.asar` `$2\_app.asar` recursive ""
@@ -1523,6 +1554,7 @@ Function DSC_LoaderMod
 	Rename `$2\app.asar` `$2\_app.asar`
 	${If} ${Errors}
 		${Journal::Discard} DiscordMod
+		${DscLog} "Not set up: couldn't rename $2\app.asar to _app.asar."
 		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: Discord's app.asar in $2 couldn't be moved (is Discord still running?).$\r$\n$\r$\nDiscord starts without $R4."
 		Goto loader_done
 	${EndIf}
@@ -1530,9 +1562,47 @@ Function DSC_LoaderMod
 	StrCpy $0 `$2\app.asar\package.json`
 	StrCpy $1 `{$\r$\n$\t"name": "discord",$\r$\n$\t"main": "index.js"$\r$\n}$\r$\n`
 	Call DSC_WriteText
-	StrCpy $0 `$2\app.asar\index.js`
-	StrCpy $1 `// Discord Portable: starts Discord through the client mod its launcher asks$\r$\n// for, and Discord's own app (moved to _app.asar) otherwise.$\r$\nconst { join } = require("path");$\r$\nif (process.env.${MODENV}) {$\r$\n$\trequire(process.env.${MODENV});$\r$\n} else {$\r$\n$\tconst { app } = require("electron");$\r$\n$\tconst asarPath = join(__dirname, "..", "_app.asar");$\r$\n$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n$\tapp.setAppPath(asarPath);$\r$\n$\trequire(require.main.filename);$\r$\n}$\r$\n`
-	Call DSC_WriteText
+	ClearErrors
+	FileOpen $0 `$2\app.asar\index.js` w
+	${IfNot} ${Errors}
+		FileWrite $0 `// Discord Portable: starts Discord through the client mod its launcher asks$\r$\n`
+		FileWrite $0 `// for, and Discord's own app (moved to _app.asar) otherwise. What happens is$\r$\n`
+		FileWrite $0 `// written to Data\settings\ClientMod.log.$\r$\n`
+		FileWrite $0 `const { join } = require("path");$\r$\n`
+		FileWrite $0 `const fs = require("fs");$\r$\n`
+		FileWrite $0 `const logFile = process.env.${LOGENV};$\r$\n`
+		FileWrite $0 `function log(text) {$\r$\n`
+		FileWrite $0 `$\tif (!logFile) return;$\r$\n`
+		FileWrite $0 `$\ttry {$\r$\n`
+		FileWrite $0 `$\t$\tfs.appendFileSync(logFile, "[loader " + new Date().toISOString() + "] " + text + "\r\n");$\r$\n`
+		FileWrite $0 `$\t} catch (e) {}$\r$\n`
+		FileWrite $0 `}$\r$\n`
+		FileWrite $0 `function startDiscord() {$\r$\n`
+		FileWrite $0 `$\tconst { app } = require("electron");$\r$\n`
+		FileWrite $0 `$\tconst asarPath = join(__dirname, "..", "_app.asar");$\r$\n`
+		FileWrite $0 `$\tconst pkg = require(join(asarPath, "package.json"));$\r$\n`
+		FileWrite $0 `$\trequire.main.filename = join(asarPath, pkg.main);$\r$\n`
+		FileWrite $0 `$\tapp.setAppPath(asarPath);$\r$\n`
+		FileWrite $0 `$\tlog("starting Discord from " + require.main.filename);$\r$\n`
+		FileWrite $0 `$\trequire(require.main.filename);$\r$\n`
+		FileWrite $0 `}$\r$\n`
+		FileWrite $0 `log("loaded from " + __dirname + " by " + process.execPath + " (Electron " + process.versions.electron + ")");$\r$\n`
+		FileWrite $0 `const mod = process.env.${MODENV};$\r$\n`
+		FileWrite $0 `if (mod) {$\r$\n`
+		FileWrite $0 `$\tlog("client mod: " + mod + (fs.existsSync(mod) ? "" : " (file missing)"));$\r$\n`
+		FileWrite $0 `$\ttry {$\r$\n`
+		FileWrite $0 `$\t$\trequire(mod);$\r$\n`
+		FileWrite $0 `$\t$\tlog("client mod started");$\r$\n`
+		FileWrite $0 `$\t} catch (e) {$\r$\n`
+		FileWrite $0 `$\t$\tlog("client mod failed: " + ((e && e.stack) || e));$\r$\n`
+		FileWrite $0 `$\t$\tstartDiscord();$\r$\n`
+		FileWrite $0 `$\t}$\r$\n`
+		FileWrite $0 `} else {$\r$\n`
+		FileWrite $0 `$\tlog("no client mod requested (Discord was started without the launcher)");$\r$\n`
+		FileWrite $0 `$\tstartDiscord();$\r$\n`
+		FileWrite $0 `}$\r$\n`
+		FileClose $0
+	${EndIf}
 	${IfNot} ${FileExists} `$2\app.asar\index.js`
 		MessageBox MB_ICONEXCLAMATION|MB_TOPMOST "$R4 can't be set up: the loader couldn't be written in $2.$\r$\n$\r$\nDiscord starts without $R4."
 		RMDir /r `$2\app.asar`
@@ -1541,6 +1611,8 @@ Function DSC_LoaderMod
 		Goto loader_done
 	${EndIf}
 	System::Call `kernel32::SetEnvironmentVariable(t "${MODENV}", t "$R5")`
+	System::Call `kernel32::SetEnvironmentVariable(t "${LOGENV}", t "${MODLOG}")`
+	${DscLog} "Loader set up in $2 (Discord's app.asar moved to _app.asar); ${MODENV}=$R5"
 	${If} $DscMod == vencord
 		System::Call `kernel32::SetEnvironmentVariable(t "VENCORD_USER_DATA_DIR", t "${VCDIR}")`
 	${Else}

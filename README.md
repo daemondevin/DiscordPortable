@@ -126,6 +126,14 @@ Equicord is a fork of Vencord with more plugins; the launcher sets both up the s
 
 If an installed Vencord or Equicord (or another mod's installer) already changed the portable Discord, the launcher leaves it alone, starts Discord without the mod, and says so.
 
+### If a client mod doesn't load
+
+Every launch writes `Data\settings\ClientMod.log`. Lines starting with `[launcher]` say which mod the launcher read from `DiscordPortable.ini`, whether its files were there and where it set up the loader. Lines starting with `[loader]` come from inside Discord: which Discord loaded the loader, which mod file it started, and the full error if the mod failed (Discord then starts without it).
+
+* No `[loader]` lines: Discord never ran the loader. The `[launcher]` lines say why, or which Discord was started.
+* `client mod failed`: the mod itself threw an error; the message and stack trace are in the log.
+* `client mod started` but nothing shows in Discord: the mod is running, so open Discord's developer tools (Ctrl+Shift+I) and look in the Console for errors from Vencord or Equicord.
+
 ## Data
 
 | Discord uses | Kept in |
